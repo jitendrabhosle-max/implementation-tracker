@@ -1,0 +1,1451 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>My Project Dashboard</title>
+<style>
+  :root{
+    --bg:#12141a;
+    --surface:#1a1d24;
+    --surface-2:#20242c;
+    --border:#2b2f38;
+    --text:#e7e9ee;
+    --text-dim:#8b9099;
+    --poc:#5eead4;
+    --poc-dim:#1b3a37;
+    --live:#fb923c;
+    --live-dim:#3a2818;
+    --danger:#f16a6a;
+    --rag-green:#4ade80;
+    --rag-amber:#fbbf24;
+    --rag-red:#f16a6a;
+    --mono: 'SF Mono', 'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace;
+    --sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:transparent;color:var(--text);font-family:var(--sans);}
+  #app{ background:var(--bg); min-height:100vh; padding:28px 24px 60px; }
+  .header{ display:grid; grid-template-columns:1fr auto 1fr; align-items:flex-start; margin-bottom:8px; gap:16px; }
+  .header-center{ text-align:center; grid-column:2; }
+  .header h1{ font-size:20px; font-weight:600; letter-spacing:-0.01em; margin:0 0 4px; }
+  .header p{ margin:0; color:var(--text-dim); font-size:13px; font-family:var(--mono); }
+  .total-count{ margin-top:4px !important; color:var(--poc) !important; font-weight:600; }
+  .header-actions{ display:flex; align-items:center; gap:8px; grid-column:3; justify-self:end; }
+  @media (max-width:640px){
+    .header{ grid-template-columns:1fr; text-align:center; }
+    .header-center{ grid-column:1; }
+    .header-actions{ grid-column:1; justify-self:center; }
+  }
+  .add-btn{
+    background:var(--surface-2); border:1px solid var(--border); color:var(--text);
+    padding:9px 16px; border-radius:7px; font-size:13px; font-weight:500; cursor:pointer;
+    display:flex; align-items:center; gap:6px; transition:border-color .15s, background .15s;
+  }
+  .add-btn:hover{ border-color:#3a3f4a; background:#252932; }
+  .icon-only-btn{
+    background:var(--surface-2); border:1px solid var(--border); color:var(--text-dim);
+    width:36px; height:36px; border-radius:7px; cursor:pointer; display:flex;
+    align-items:center; justify-content:center; font-size:15px; transition:border-color .15s, background .15s;
+  }
+  .icon-only-btn:hover{ border-color:#3a3f4a; background:#252932; color:var(--text); }
+  .icon-only-btn:disabled{ opacity:.5; cursor:default; }
+  .sync-line{ margin:10px 0 18px; font-size:11px; font-family:var(--mono); color:var(--text-dim); display:flex; align-items:center; }
+  .sync-dot{ width:6px;height:6px;border-radius:50%; display:inline-block; margin-right:6px; }
+  .sync-dot.on{background:var(--poc);}
+  .sync-dot.off{background:var(--text-dim);}
+  .sync-dot.error{background:var(--danger);}
+  .board{ display:grid; grid-template-columns:repeat(4, minmax(240px,1fr)); gap:14px; align-items:start; }
+  @media (max-width:900px){ .board{grid-template-columns:1fr;} }
+  .column{ background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:12px; min-height:120px; }
+  .column.drag-over{ border-color:#4a4f5c; background:#1d2029; }
+  .col-head{ display:flex; align-items:center; justify-content:space-between; padding:2px 4px 12px; }
+  .col-title{ font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:.06em; color:var(--text-dim); }
+  .col-count{ font-family:var(--mono); font-size:11px; color:var(--text-dim); background:var(--surface-2); border-radius:5px; padding:1px 6px; }
+  .card{
+    background:var(--surface-2); border:1px solid var(--border); border-radius:9px;
+    padding:12px 12px 10px; margin-bottom:9px; cursor:pointer; transition:border-color .15s;
+  }
+  .card.collapsed{ padding:10px 12px; cursor:pointer; }
+  .card-collapsed-row{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
+  .collapsed-name{ display:flex; align-items:center; font-size:13px; font-weight:500; color:var(--text); flex:1; min-width:0; }
+  .collapsed-name-text{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0; }
+  .rag-dot{ width:8px; height:8px; border-radius:50%; display:inline-block; margin-right:6px; flex:0 0 auto; }
+  .rag-dot.rag-green{ background:var(--rag-green); }
+  .rag-dot.rag-amber{ background:var(--rag-amber); }
+  .rag-dot.rag-red{ background:var(--rag-red); }
+  .card[draggable="true"]:active{cursor:grabbing;}
+  .card:hover{border-color:#3a3f4a;}
+  .card.dragging{opacity:.4;}
+  .card-top{ display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+  .card-top-left{ display:flex; align-items:center; gap:7px; min-width:0; }
+  .card-body{ display:flex; align-items:flex-start; justify-content:space-between; gap:10px; }
+  .card-main{ flex:1; min-width:0; }
+  .avatar{
+    width:44px; height:44px; border-radius:10px; flex:0 0 auto; display:flex;
+    align-items:center; justify-content:center; font-family:var(--mono); font-size:16px;
+    font-weight:700; color:#0c0d10; overflow:hidden; position:relative; background:#6b7280;
+  }
+  .note-entry-view{ margin-bottom:8px; }
+  .note-entry-view:last-child{ margin-bottom:0; }
+  .note-timestamp{
+    font-size:10px; color:var(--text-dim); font-family:var(--mono);
+    margin:0 0 2px; opacity:.8;
+  }
+  .avatar img{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; background:#fff; z-index:1; }
+  .avatar span{ position:relative; z-index:0; }
+  .badge{
+    font-family:var(--mono); font-size:10px; font-weight:600; letter-spacing:.03em;
+    padding:2px 7px; border-radius:5px; display:inline-flex; align-items:center; gap:5px;
+  }
+  .badge.poc{background:var(--poc-dim);color:var(--poc);}
+  .badge.live{background:var(--live-dim);color:var(--live);}
+  .pulse{ width:6px;height:6px;border-radius:50%; background:var(--live); animation:pulse 1.8s ease-in-out infinite; }
+  @keyframes pulse{ 0%,100%{opacity:1; box-shadow:0 0 0 0 rgba(251,146,60,.5);} 50%{opacity:.6; box-shadow:0 0 0 4px rgba(251,146,60,0);} }
+  .card-title{ font-size:13.5px; font-weight:500; line-height:1.35; margin:0 0 4px; word-break:break-word; }
+  .card-notes{ font-size:12px; color:var(--text-dim); line-height:1.4; margin:0 0 8px; white-space:pre-wrap; word-break:break-word; }
+  .card-foot{ display:flex; align-items:center; justify-content:space-between; }
+  .owner{ font-size:11px; color:var(--text-dim); font-family:var(--mono); }
+  .card-actions{ display:flex; gap:6px; opacity:0; transition:opacity .12s; }
+  .card:hover .card-actions{opacity:1;}
+  .icon-btn{ background:none; border:none; color:var(--text-dim); cursor:pointer; font-size:12px; padding:2px 4px; border-radius:4px; }
+  .icon-btn:hover{color:var(--text); background:var(--border);}
+  .empty-hint{ color:var(--text-dim); font-size:12px; font-family:var(--mono); padding:8px 4px 2px; }
+  .overlay{ position:fixed;inset:0; background:rgba(8,9,12,.6); display:flex;align-items:center;justify-content:center; z-index:50; padding:20px; overflow-y:auto; }
+  .modal{ background:var(--surface); border:1px solid var(--border); border-radius:14px; width:100%; max-width:460px; padding:20px; margin:auto; }
+  .modal h2{ font-size:15px; margin:0 0 6px; font-weight:600; }
+  .modal .sub{ font-size:12px; color:var(--text-dim); margin:0 0 16px; line-height:1.5; }
+  .field{margin-bottom:12px;}
+  .field label{ display:block; font-size:11px; color:var(--text-dim); margin-bottom:5px; font-family:var(--mono); text-transform:uppercase; letter-spacing:.04em; }
+  .field input, .field textarea{
+    width:100%; background:var(--surface-2); border:1px solid var(--border); color:var(--text);
+    padding:8px 10px; border-radius:7px; font-size:13px; font-family:var(--sans);
+  }
+  .field textarea{resize:vertical; min-height:60px;}
+  .field-hint{ font-size:11px; color:var(--text-dim); margin-top:5px; line-height:1.4; }
+  .note-history{ margin-top:4px; max-height:220px; overflow-y:auto; }
+  .note-entry{ background:var(--surface-2); border:1px solid var(--border); border-radius:7px; padding:8px 10px; margin-bottom:6px; }
+  .note-entry:last-child{ margin-bottom:0; }
+  .note-entry-text{ font-size:12px; color:var(--text); line-height:1.4; white-space:pre-wrap; word-break:break-word; margin:0 0 4px; }
+  .note-entry-meta{ display:flex; align-items:center; justify-content:space-between; font-size:10px; color:var(--text-dim); font-family:var(--mono); }
+  .card-links{ display:flex; flex-direction:column; gap:4px; margin:2px 0 8px; }
+  .card-link{ font-size:11px; color:var(--poc); text-decoration:none; font-family:var(--mono); word-break:break-word; }
+  .card-link:hover{ text-decoration:underline; }
+  .meta-row{ display:flex; gap:6px; flex-wrap:wrap; margin:0 0 8px; }
+  .card-collapsed-row .meta-row{ flex-wrap:nowrap; }
+  .chip{ font-family:var(--mono); font-size:10px; font-weight:600; padding:2px 7px; border-radius:5px; background:var(--surface); border:1px solid var(--border); color:var(--text-dim); }
+  .chip.infra{ color:var(--poc); border-color:var(--poc-dim); }
+  .field-row{ display:flex; gap:8px; align-items:flex-end; }
+  .field-row .field{flex:1; margin-bottom:0;}
+  .type-toggle{display:flex; gap:8px;}
+  .type-toggle button{
+    flex:1; padding:8px; border-radius:7px; border:1px solid var(--border); background:var(--surface-2);
+    color:var(--text-dim); font-size:12px; font-weight:600; font-family:var(--mono); cursor:pointer;
+  }
+  .type-toggle button.active.poc{background:var(--poc-dim); color:var(--poc); border-color:var(--poc);}
+  .type-toggle button.active.live{background:var(--live-dim); color:var(--live); border-color:var(--live);}
+  .type-toggle button.active.rag-green-active{background:rgba(74,222,128,.15); color:var(--rag-green); border-color:var(--rag-green);}
+  .type-toggle button.active.rag-amber-active{background:rgba(251,191,36,.15); color:var(--rag-amber); border-color:var(--rag-amber);}
+  .type-toggle button.active.rag-red-active{background:rgba(241,106,106,.15); color:var(--rag-red); border-color:var(--rag-red);}
+  .modal-actions{ display:flex; justify-content:space-between; margin-top:18px; }
+  .btn{ padding:8px 16px; border-radius:7px; font-size:13px; font-weight:500; cursor:pointer; border:1px solid var(--border); background:var(--surface-2); color:var(--text); }
+  .btn.primary{ background:var(--text); color:var(--bg); border-color:var(--text); }
+  .btn.delete{ background:none; border:none; color:var(--danger); font-size:12px; }
+  .btn.danger{ background:var(--danger); color:#2a0a0a; border-color:var(--danger); font-weight:600; }
+  .btn.danger:disabled{ opacity:.4; cursor:default; background:var(--surface-2); color:var(--text-dim); border-color:var(--border); }
+  .btn:disabled{ opacity:.5; cursor:default; }
+  .btn.small{ padding:5px 9px; font-size:11px; }
+  .delete-confirm-name{ color:var(--text); font-weight:600; }
+  .status-msg{
+    position:fixed; bottom:18px; left:50%; transform:translateX(-50%);
+    background:var(--surface-2); border:1px solid var(--border); color:var(--text-dim);
+    font-family:var(--mono); font-size:11px; padding:6px 12px; border-radius:20px;
+    opacity:0; transition:opacity .3s; pointer-events:none; max-width:80vw; text-align:center;
+  }
+  .status-msg.show{opacity:1;}
+  .footer-banner{
+    display:flex; align-items:center; justify-content:center; gap:14px;
+    margin-top:36px; padding:16px 0 4px; color:var(--text-dim);
+  }
+  .footer-text{
+    font-family:var(--mono); font-size:12px; font-style:italic; letter-spacing:.02em;
+    opacity:.85;
+  }
+  .marquee-lights{ display:flex; gap:6px; }
+  .marquee-lights span{
+    width:6px; height:6px; border-radius:50%; background:var(--border);
+    animation: bulb-chase 1.4s ease-in-out infinite;
+  }
+  @keyframes bulb-chase{
+    0%, 100% { background:var(--border); box-shadow:none; }
+    50% { background:var(--live); box-shadow:0 0 6px var(--live); }
+  }
+  .debug-box{
+    margin-top:14px; background:var(--surface-2); border:1px solid var(--border); border-radius:8px;
+    padding:10px; font-family:var(--mono); font-size:10.5px; color:var(--text-dim); max-height:140px;
+    overflow-y:auto; white-space:pre-wrap; word-break:break-word;
+  }
+  .debug-toggle{ font-size:11px; color:var(--text-dim); cursor:pointer; text-decoration:underline; margin-top:10px; display:inline-block; }
+  .add-note-btn{
+    border:1px dashed var(--border); padding:5px 10px; border-radius:6px; margin:0 0 10px; display:inline-block;
+  }
+  .note-add-form{ margin:0 0 10px; }
+  .note-add-textarea{
+    width:100%; background:var(--surface-2); border:1px solid var(--border); color:var(--text);
+    padding:8px 10px; border-radius:7px; font-size:12px; font-family:var(--sans); resize:vertical; min-height:54px;
+  }
+  .note-add-actions{ display:flex; justify-content:flex-end; gap:8px; margin-top:6px; }
+  .auth-gate{ min-height:100vh; display:flex; align-items:center; justify-content:center; padding:24px; background:var(--bg); }
+  .auth-card{ background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:32px; max-width:400px; width:100%; text-align:center; }
+  .auth-card h1{ font-size:18px; margin:0 0 10px; }
+  .auth-card .sub{ font-size:12px; color:var(--text-dim); line-height:1.5; margin:0 0 18px; }
+  .auth-error{ color:var(--danger); font-size:12px; margin:0 0 14px; line-height:1.4; }
+  .access-row{ display:flex; align-items:center; justify-content:space-between; gap:10px; background:var(--surface-2); border:1px solid var(--border); border-radius:7px; padding:8px 10px; margin-bottom:6px; flex-wrap:wrap; }
+  .access-row:last-child{ margin-bottom:0; }
+  .access-row-info{ min-width:0; }
+  .access-row-email{ font-size:12px; color:var(--text); word-break:break-word; }
+  .access-row-meta{ font-size:10px; color:var(--text-dim); font-family:var(--mono); margin-top:2px; }
+  .access-row-actions{ display:flex; gap:6px; flex-wrap:wrap; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
+<script>
+// --- Firebase project config. Replace apiKey/authDomain/storageBucket/
+// messagingSenderId/appId below with the values from your Firebase project's
+// "Your apps" > Web app config (see FIREBASE_AUTH_SETUP_GUIDE.md, step 1).
+// These are NOT secret — the apiKey here only identifies the project; real
+// access control is enforced entirely by the Realtime Database security
+// rules, not by keeping this object private.
+const firebaseConfig = {
+  apiKey: "AIzaSyCuYglaIiHkPa9qkEvqG_WHmFIX50_PaqE",
+  authDomain: "myprojecttracker-fd7fd.firebaseapp.com",
+  databaseURL: "https://myprojecttracker-fd7fd-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "myprojecttracker-fd7fd",
+  storageBucket: "myprojecttracker-fd7fd.firebasestorage.app",
+  messagingSenderId: "1017817362518",
+  appId: "1:1017817362518:web:09900981a15309eaab4bf7"
+};
+
+const COLUMNS = [
+  {id:'backlog', title:'Backlog'},
+  {id:'poc', title:'POC In Progress'},
+  {id:'live', title:'Live Implementations'},
+  {id:'done', title:'Done and Dusted'},
+];
+
+const STORAGE_KEY = 'impl-tracker:cards';
+const AVATAR_COLORS = ['#5eead4','#fb923c','#a78bfa','#f472b6','#60a5fa','#facc15','#4ade80','#f87171'];
+
+let cards = [];
+let dragCardId = null;
+let editingId = null;
+let loaded = false;
+let showSettings = false;
+let showDebug = false;
+let syncState = 'off'; // 'off' | 'ok' | 'error'
+let debugLog = [];
+
+// --- Auth / access-control state.
+let currentUser = null;      // Firebase Auth user, or null if signed out
+let userRole = null;         // null (unresolved) | 'editor' | 'viewer' | 'pending'
+let editorsExist = false;    // whether any editor has been claimed yet (bootstrap gate)
+let authBusy = false;
+let authError = '';
+let accessBusy = false;
+let accessData = { pending: {}, viewers: {}, editors: {} };
+
+function canEdit(){ return userRole === 'editor'; }
+
+function logDebug(msg){
+  const time = new Date().toLocaleTimeString();
+  debugLog.unshift(`[${time}] ${msg}`);
+  debugLog = debugLog.slice(0, 14);
+}
+
+function cryptoId(){ return 'c'+Math.random().toString(36).slice(2,10); }
+
+function resizeImageToDataUrl(file, maxSize){
+  return new Promise((resolve, reject) => {
+    if(!file.type.startsWith('image/')){
+      reject(new Error('Please choose an image file'));
+      return;
+    }
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('Could not read the file'));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error('Could not load that image'));
+      img.onload = () => {
+        const size = maxSize || 64;
+        const canvas = document.createElement('canvas');
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext('2d');
+        // Fill white first — JPEG has no transparency, so without this,
+        // logos with transparent backgrounds would get a black fill instead.
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, size, size);
+        // Cover-fit: fill the square, cropping evenly, so logos of any
+        // aspect ratio still look like a consistent icon.
+        const scale = Math.max(size / img.width, size / img.height);
+        const w = img.width * scale;
+        const h = img.height * scale;
+        ctx.drawImage(img, (size - w) / 2, (size - h) / 2, w, h);
+        // JPEG at moderate quality is dramatically smaller than PNG for
+        // this use case — keeps the cloud-synced payload small and quick
+        // to sync even with several cards carrying logos.
+        resolve(canvas.toDataURL('image/jpeg', 0.6));
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function seedCards(){
+  const now = new Date().toISOString();
+  return [
+    {id: cryptoId(), title:'Fraud check API', type:'poc', owner:'', client:'Acme Corp', domain:'acme.com', col:'poc',
+      noteLog:[{id: cryptoId(), text:'Testing latency against vendor sandbox', at: now}]},
+    {id: cryptoId(), title:'Client onboarding flow', type:'live', owner:'', client:'Globex', domain:'globex.com', col:'live',
+      noteLog:[{id: cryptoId(), text:'Rolled out to 3 pilot clients', at: now}]},
+  ];
+}
+
+// Cards saved before notes became a dated log had a single 'notes' string.
+// Convert those into a one-entry log so old data keeps working, without
+// ever touching timestamps on entries that already exist as log entries.
+function migrateCards(list){
+  return (list || []).map(c => {
+    if(!Array.isArray(c.noteLog)){
+      c.noteLog = c.notes ? [{id: cryptoId(), text: c.notes, at: c.updatedAt || new Date().toISOString()}] : [];
+    }
+    return c;
+  });
+}
+
+// --- Firebase Realtime Database helpers. Plain REST calls against the
+// database's HTTPS endpoint, authenticated with the signed-in user's
+// Firebase ID token (?auth=<idToken>) so the security rules actually
+// evaluate who's allowed to read/write, instead of a shared secret that
+// bypasses every rule.
+function fbDataUrl(path, token){
+  const base = firebaseConfig.databaseURL.replace(/\/+$/, '');
+  return `${base}/${path}.json?auth=${encodeURIComponent(token)}`;
+}
+
+async function getToken(forceRefresh){
+  if(!currentUser) return null;
+  return await currentUser.getIdToken(!!forceRefresh);
+}
+
+async function fbGet(path){
+  const token = await getToken();
+  const res = await fetch(fbDataUrl(path, token));
+  if(!res.ok){
+    const text = await res.text().catch(()=> '');
+    throw new Error('Read failed: HTTP ' + res.status + (text ? ' — ' + text.slice(0,200) : ''));
+  }
+  return await res.json();
+}
+
+async function fbPut(path, value){
+  const token = await getToken();
+  const res = await fetch(fbDataUrl(path, token), {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(value)
+  });
+  if(!res.ok){
+    const text = await res.text().catch(()=> '');
+    throw new Error('Write failed: HTTP ' + res.status + (text ? ' — ' + text.slice(0,200) : ''));
+  }
+  return true;
+}
+
+async function fbDelete(path){
+  const token = await getToken();
+  const res = await fetch(fbDataUrl(path, token), { method: 'DELETE' });
+  if(!res.ok){
+    const text = await res.text().catch(()=> '');
+    throw new Error('Delete failed: HTTP ' + res.status + (text ? ' — ' + text.slice(0,200) : ''));
+  }
+  return true;
+}
+
+// --- Auth flow.
+function initFirebase(){
+  firebase.initializeApp(firebaseConfig);
+  firebase.auth().onAuthStateChanged(onAuthChanged);
+}
+
+async function onAuthChanged(user){
+  currentUser = user;
+  authError = '';
+  authBusy = false;
+  if(!user){
+    userRole = null;
+    loaded = true;
+    render();
+    return;
+  }
+  loaded = false;
+  render();
+  await resolveRole();
+}
+
+async function resolveRole(){
+  try{
+    const editorsSnap = await fbGet('editors');
+    editorsExist = !!(editorsSnap && Object.keys(editorsSnap).length > 0);
+    if(editorsSnap && editorsSnap[currentUser.uid]){
+      userRole = 'editor';
+      await loadCards();
+      return;
+    }
+    const viewerEntry = await fbGet('allowedViewers/' + currentUser.uid);
+    if(viewerEntry){
+      userRole = 'viewer';
+      await loadCards();
+      return;
+    }
+    userRole = 'pending';
+    await fbPut('accessRequests/' + currentUser.uid, {
+      email: currentUser.email || '',
+      name: currentUser.displayName || '',
+      requestedAt: new Date().toISOString()
+    });
+    loaded = true;
+    render();
+  }catch(e){
+    authError = e.message || 'Could not check your access — try again.';
+    loaded = true;
+    render();
+  }
+}
+
+async function claimAdminAccess(){
+  authBusy = true;
+  authError = '';
+  render();
+  try{
+    await fbPut('editors/' + currentUser.uid, {
+      email: currentUser.email || '',
+      name: currentUser.displayName || '',
+      addedAt: new Date().toISOString()
+    });
+    userRole = 'editor';
+    editorsExist = true;
+    authBusy = false;
+    await loadCards();
+  }catch(e){
+    authBusy = false;
+    authError = 'Could not claim admin access — someone may have just claimed it, or check your connection. (' + e.message + ')';
+    loaded = true;
+    render();
+  }
+}
+
+function signIn(){
+  authBusy = true;
+  authError = '';
+  render();
+  const provider = new firebase.auth.GoogleAuthProvider();
+  firebase.auth().signInWithPopup(provider).catch(e => {
+    authBusy = false;
+    authError = e.message || 'Sign-in failed.';
+    render();
+  });
+}
+
+function signOutUser(){
+  firebase.auth().signOut();
+}
+
+async function loadAccessData(){
+  try{
+    const [pending, viewers, editors] = await Promise.all([
+      fbGet('accessRequests'),
+      fbGet('allowedViewers'),
+      fbGet('editors')
+    ]);
+    accessData = { pending: pending || {}, viewers: viewers || {}, editors: editors || {} };
+  }catch(e){
+    flashStatus('Could not load access list — ' + e.message);
+  }
+  render();
+}
+
+async function loadCards(){
+  try{
+    flashStatus('Syncing…');
+    logDebug('READ cards');
+    const record = await fbGet('cards');
+    cards = migrateCards(Array.isArray(record) ? record : seedCards());
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(cards));
+    syncState = 'ok';
+    logDebug('Read OK — ' + cards.length + ' card(s)');
+    flashStatus('Synced from cloud');
+  }catch(e){
+    syncState = 'error';
+    logDebug('Read FAILED — ' + e.message);
+    const raw = localStorage.getItem(STORAGE_KEY);
+    cards = migrateCards(raw ? JSON.parse(raw) : seedCards());
+    flashStatus('Could not reach cloud — showing last saved copy');
+  }
+  loaded = true;
+  render();
+}
+
+async function saveCards(){
+  if(!canEdit()) return;
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(cards));
+  try{
+    flashStatus('Saving to cloud…');
+    const payloadSize = new Blob([JSON.stringify(cards)]).size;
+    logDebug('WRITE ' + cards.length + ' card(s), ~' + Math.round(payloadSize/1024) + 'KB');
+    await fbPut('cards', cards);
+    syncState = 'ok';
+    logDebug('Write OK');
+    flashStatus('Saved to cloud');
+    render();
+  }catch(e){
+    syncState = 'error';
+    logDebug('Write FAILED — ' + e.message);
+    flashStatus('Saved locally — could not reach cloud');
+    render();
+  }
+}
+
+let statusTimer;
+function flashStatus(msg){
+  const el = document.getElementById('status-msg');
+  if(!el) return;
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(statusTimer);
+  statusTimer = setTimeout(()=> el.classList.remove('show'), 1800);
+}
+
+function openModal(id){ if(!canEdit()) return; editingId = id || null; render(); }
+function closeModal(){ editingId = null; render(); }
+
+function upsertCard(data){
+  if(!canEdit()) return;
+  const stamped = { ...data, updatedAt: new Date().toISOString() };
+  if(editingId && editingId !== 'new'){
+    cards = cards.map(c => c.id === editingId ? {...c, ...stamped} : c);
+  } else {
+    cards.push({id: cryptoId(), col:'backlog', ...stamped});
+  }
+  saveCards();
+  closeModal();
+}
+
+let expandedCards = new Set();
+let addingNoteId = null;
+let deleteConfirmId = null;
+function toggleExpand(id){
+  if(expandedCards.has(id)){
+    expandedCards.delete(id);
+    if(addingNoteId === id) addingNoteId = null;
+  } else {
+    expandedCards.add(id);
+  }
+  render();
+}
+
+function addNoteToCard(id, text){
+  if(!canEdit()) return;
+  cards = cards.map(c => {
+    if(c.id !== id) return c;
+    const noteLog = Array.isArray(c.noteLog) ? [...c.noteLog] : [];
+    noteLog.push({id: cryptoId(), text, at: new Date().toISOString()});
+    return {...c, noteLog, updatedAt: new Date().toISOString()};
+  });
+  saveCards();
+}
+
+function openDeleteConfirm(id){ if(!canEdit()) return; deleteConfirmId = id; render(); }
+function closeDeleteConfirm(){ deleteConfirmId = null; render(); }
+
+function deleteCard(id){
+  if(!canEdit()) return;
+  cards = cards.filter(c => c.id !== id);
+  if(addingNoteId === id) addingNoteId = null;
+  if(deleteConfirmId === id) deleteConfirmId = null;
+  saveCards();
+  closeModal();
+}
+
+function moveCard(id, col){
+  if(!canEdit()) return;
+  cards = cards.map(c => c.id === id ? {...c, col} : c);
+  saveCards();
+  render();
+}
+
+function colorForName(name){
+  let hash = 0;
+  for(let i=0;i<name.length;i++) hash = (hash*31 + name.charCodeAt(i)) >>> 0;
+  return AVATAR_COLORS[hash % AVATAR_COLORS.length];
+}
+function initialsForName(name){
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if(parts.length === 0) return '?';
+  if(parts.length === 1) return parts[0].slice(0,2).toUpperCase();
+  return (parts[0][0] + parts[1][0]).toUpperCase();
+}
+const RAG_LABELS = {green:'Green', amber:'Amber', red:'Red'};
+function renderRagDot(card){
+  if(!card.ragStatus || !RAG_LABELS[card.ragStatus]) return '';
+  return `<span class="rag-dot rag-${card.ragStatus}" title="RAG: ${RAG_LABELS[card.ragStatus]}"></span>`;
+}
+
+function renderAvatar(card){
+  const client = (card.client || '').trim();
+  if(!client && !card.logo) return '';
+  const initials = initialsForName(client || '?');
+  const bg = colorForName(client || 'x');
+  if(card.logo){
+    // Uploaded image — always available, no need for a fallback underneath.
+    return `<div class="avatar" style="background:transparent" title="${escapeAttr(client)}"><img src="${card.logo}" alt=""></div>`;
+  }
+  const domain = (card.domain || '').trim().replace(/^https?:\/\//,'').replace(/\/.*$/,'');
+  if(domain){
+    // Auto-fetched logo — if it fails to load, remove it so initials show through.
+    return `<div class="avatar" style="background:${bg}" title="${escapeAttr(client)}"><img src="https://logo.clearbit.com/${escapeAttr(domain)}?size=64" alt="" onerror="this.remove()"><span>${initials}</span></div>`;
+  }
+  return `<div class="avatar" style="background:${bg}" title="${escapeAttr(client)}"><span>${initials}</span></div>`;
+}
+
+function renderSignInGate(){
+  return `
+    <div class="auth-gate">
+      <div class="auth-card">
+        <h1>My Project Dashboard</h1>
+        <p class="sub">Sign in with your Google account to view or edit this board.</p>
+        ${authError ? `<p class="auth-error">${escapeHtml(authError)}</p>` : ''}
+        <button class="btn primary" id="signin-btn" ${authBusy ? 'disabled' : ''}>${authBusy ? 'Signing in…' : 'Sign in with Google'}</button>
+      </div>
+    </div>
+  `;
+}
+function wireSignInGate(){
+  const btn = document.getElementById('signin-btn');
+  if(btn) btn.onclick = signIn;
+}
+
+function renderPendingGate(){
+  return `
+    <div class="auth-gate">
+      <div class="auth-card">
+        <h1>Access requested</h1>
+        <p class="sub">Signed in as <strong>${escapeHtml(currentUser.email || '')}</strong>. Ask the board owner to approve your access — come back and check again once they have.</p>
+        ${authError ? `<p class="auth-error">${escapeHtml(authError)}</p>` : ''}
+        ${!editorsExist ? `
+          <p class="field-hint" style="margin-bottom:10px;">No one has claimed admin access yet. If that's supposed to be you:</p>
+          <button class="btn primary" id="claim-admin-btn" ${authBusy ? 'disabled' : ''} style="margin-bottom:14px;">${authBusy ? 'Claiming…' : 'Claim admin access'}</button>
+        ` : ''}
+        <div style="display:flex; gap:8px; justify-content:center;">
+          <button class="btn" id="pending-refresh-btn">Check again</button>
+          <button class="btn" id="pending-signout-btn">Sign out</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+function wirePendingGate(){
+  const claimBtn = document.getElementById('claim-admin-btn');
+  if(claimBtn) claimBtn.onclick = claimAdminAccess;
+  document.getElementById('pending-refresh-btn').onclick = () => { loaded = false; render(); resolveRole(); };
+  document.getElementById('pending-signout-btn').onclick = signOutUser;
+}
+
+function render(){
+  const app = document.getElementById('app');
+
+  if(!currentUser){
+    app.innerHTML = renderSignInGate();
+    wireSignInGate();
+    return;
+  }
+
+  if(!loaded){
+    app.innerHTML = `<div style="color:var(--text-dim);font-family:var(--mono);font-size:13px;padding:40px;">Loading…</div>`;
+    return;
+  }
+
+  if(userRole === 'pending'){
+    app.innerHTML = renderPendingGate();
+    wirePendingGate();
+    return;
+  }
+
+  if(userRole !== 'editor' && userRole !== 'viewer'){
+    app.innerHTML = `<div style="color:var(--text-dim);font-family:var(--mono);font-size:13px;padding:40px;">Checking your access…</div>`;
+    return;
+  }
+
+  const editing = editingId && editingId !== 'new' ? cards.find(c=>c.id===editingId) : null;
+  const dotClass = syncState === 'error' ? 'error' : 'on';
+  const syncLabel = syncState === 'error' ? 'Last sync failed — click ⟳ to retry' : 'Synced';
+  const roleChip = `<span class="chip" style="margin-left:8px;">${canEdit() ? 'Editor' : 'View only'}</span>`;
+
+  app.innerHTML = `
+    <div class="header">
+      <div></div>
+      <div class="header-center">
+        <h1>My Project Dashboard</h1>
+        <p class="total-count">${cards.length} and counting...</p>
+      </div>
+      <div class="header-actions">
+        <button class="icon-only-btn" id="refresh-btn" title="Refresh from cloud">⟳</button>
+        <button class="icon-only-btn" id="settings-btn" title="${canEdit() ? 'Manage access' : 'Account'}">⚙</button>
+        ${canEdit() ? `<button class="add-btn" id="add-btn">+ New implementation</button>` : ''}
+      </div>
+    </div>
+    <div class="sync-line"><span class="sync-dot ${dotClass}"></span>${syncLabel}${roleChip}</div>
+    <div class="board">
+      ${COLUMNS.map(colDef => renderColumn(colDef)).join('')}
+    </div>
+    <div class="footer-banner">
+      <div class="marquee-lights">${Array.from({length:5}).map((_,i)=>`<span style="animation-delay:${i*0.15}s"></span>`).join('')}</div>
+      <span class="footer-text">The show must go on...</span>
+      <div class="marquee-lights">${Array.from({length:5}).map((_,i)=>`<span style="animation-delay:${i*0.15}s"></span>`).join('')}</div>
+    </div>
+    <div class="status-msg" id="status-msg"></div>
+    ${editingId !== null ? renderModal(editing) : ''}
+    ${showSettings ? renderSettings() : ''}
+    ${deleteConfirmId ? renderDeleteConfirm() : ''}
+  `;
+
+  const addBtnEl = document.getElementById('add-btn');
+  if(addBtnEl) addBtnEl.onclick = () => { editingId = 'new'; render(); };
+  document.getElementById('refresh-btn').onclick = async () => { loaded = false; render(); await loadCards(); };
+  document.getElementById('settings-btn').onclick = () => {
+    showSettings = true;
+    render();
+    if(canEdit()) loadAccessData();
+  };
+
+  document.querySelectorAll('.card').forEach(el=>{
+    const id = el.dataset.id;
+    el.addEventListener('dragstart', (e) => {
+      if(!canEdit() || e.target.closest('.note-add-form')){ e.preventDefault(); return; }
+      dragCardId = id; el.classList.add('dragging');
+    });
+    el.addEventListener('dragend', () => el.classList.remove('dragging'));
+    el.addEventListener('click', (e) => {
+      if(e.target.closest('.icon-btn') || e.target.closest('.note-add-form')) return;
+      toggleExpand(id);
+    });
+  });
+  document.querySelectorAll('.edit-btn').forEach(btn=>{
+    btn.addEventListener('click', (e)=>{ e.stopPropagation(); openModal(btn.dataset.id); });
+  });
+  document.querySelectorAll('.del-btn').forEach(btn=>{
+    btn.addEventListener('click', (e)=>{ e.stopPropagation(); openDeleteConfirm(btn.dataset.id); });
+  });
+  document.querySelectorAll('.add-note-btn').forEach(btn=>{
+    btn.addEventListener('click', (e)=>{
+      e.stopPropagation();
+      addingNoteId = btn.dataset.addNote;
+      render();
+      const ta = document.getElementById('note-add-text-' + addingNoteId);
+      if(ta) ta.focus();
+    });
+  });
+  document.querySelectorAll('[data-cancel-note]').forEach(btn=>{
+    btn.addEventListener('click', (e)=>{
+      e.stopPropagation();
+      addingNoteId = null;
+      render();
+    });
+  });
+  document.querySelectorAll('[data-save-note]').forEach(btn=>{
+    btn.addEventListener('click', (e)=>{
+      e.stopPropagation();
+      const id = btn.dataset.saveNote;
+      const ta = document.getElementById('note-add-text-' + id);
+      const text = ta ? ta.value.trim() : '';
+      if(!text){ flashStatus('Type a note before saving'); return; }
+      addingNoteId = null;
+      addNoteToCard(id, text);
+      render();
+    });
+  });
+  document.querySelectorAll('.note-add-textarea').forEach(ta=>{
+    ta.addEventListener('click', (e) => e.stopPropagation());
+    ta.addEventListener('keydown', (e) => {
+      if(e.key === 'Enter' && (e.metaKey || e.ctrlKey)){
+        e.preventDefault();
+        const form = ta.closest('.note-add-form');
+        const saveBtn = form && form.querySelector('[data-save-note]');
+        if(saveBtn) saveBtn.click();
+      }
+    });
+  });
+  if(canEdit()){
+    document.querySelectorAll('.column').forEach(colEl=>{
+      colEl.addEventListener('dragover', e=>{ e.preventDefault(); colEl.classList.add('drag-over'); });
+      colEl.addEventListener('dragleave', ()=> colEl.classList.remove('drag-over'));
+      colEl.addEventListener('drop', e=>{
+        e.preventDefault(); colEl.classList.remove('drag-over');
+        if(dragCardId) moveCard(dragCardId, colEl.dataset.col);
+        dragCardId = null;
+      });
+    });
+  }
+
+  if(editingId !== null) setupModalHandlers(editing);
+  if(showSettings) setupSettingsHandlers();
+  if(deleteConfirmId) setupDeleteConfirmHandlers();
+}
+
+function renderColumn(colDef){
+  const colCards = cards.filter(c => c.col === colDef.id);
+  return `
+    <div class="column" data-col="${colDef.id}">
+      <div class="col-head">
+        <span class="col-title">${colDef.title}</span>
+        <span class="col-count">${colCards.length}</span>
+      </div>
+      ${colCards.length === 0 ? `<div class="empty-hint">No cards yet</div>` : ''}
+      ${colCards.map(renderCard).join('')}
+    </div>
+  `;
+}
+
+function ensureUrl(url){
+  if(!url) return '';
+  if(!/^https?:\/\//i.test(url)) return 'https://' + url;
+  return url;
+}
+
+function formatTimestamp(iso){
+  if(!iso) return '';
+  const d = new Date(iso);
+  if(isNaN(d.getTime())) return '';
+  return d.toLocaleString(undefined, { month:'short', day:'numeric', year:'numeric', hour:'numeric', minute:'2-digit' });
+}
+
+function renderCard(card){
+  const isLive = card.type === 'live';
+  const isExpanded = expandedCards.has(card.id);
+  const displayName = card.client || card.title;
+
+  if(!isExpanded){
+    return `
+      <div class="card collapsed" draggable="${canEdit() ? 'true' : 'false'}" data-id="${card.id}">
+        <div class="card-collapsed-row">
+          <span class="collapsed-name">${renderRagDot(card)}<span class="collapsed-name-text">${escapeHtml(displayName)}</span></span>
+          ${(card.modules && card.modules.length) || card.infraType ? `
+            <div class="meta-row" style="margin:0; flex:0 0 auto;">
+              ${(card.modules||[]).map(m => `<span class="chip">${escapeHtml(m)}</span>`).join('')}
+              ${card.infraType ? `<span class="chip infra">${escapeHtml(card.infraType)}</span>` : ''}
+            </div>
+          ` : ''}
+          ${renderAvatar(card)}
+        </div>
+      </div>
+    `;
+  }
+
+  const noteLog = Array.isArray(card.noteLog)
+    ? [...card.noteLog].sort((a,b) => new Date(b.at) - new Date(a.at))
+    : [];
+
+  return `
+    <div class="card expanded" draggable="${canEdit() ? 'true' : 'false'}" data-id="${card.id}">
+      <div class="card-top">
+        <span class="badge ${card.type}">${isLive ? '<span class="pulse"></span>Live Implementations' : 'POC'}</span>
+        ${canEdit() ? `
+        <div class="card-actions">
+          <button class="icon-btn edit-btn" data-id="${card.id}" title="Edit">✎</button>
+          <button class="icon-btn del-btn" data-id="${card.id}" title="Delete">✕</button>
+        </div>
+        ` : ''}
+      </div>
+      <div class="card-body">
+        <div class="card-main">
+          <p class="card-title">${escapeHtml(card.title)}</p>
+          ${card.client ? `<p class="owner" style="margin:0 0 6px; display:flex; align-items:center;">${renderRagDot(card)}${escapeHtml(card.client)}</p>` : ''}
+          ${(card.modules && card.modules.length) || card.infraType ? `
+            <div class="meta-row">
+              ${(card.modules||[]).map(m => `<span class="chip">${escapeHtml(m)}</span>`).join('')}
+              ${card.infraType ? `<span class="chip infra">${escapeHtml(card.infraType)}</span>` : ''}
+            </div>
+          ` : ''}
+          ${(card.links && card.links.length) ? `
+            <div class="card-links">
+              ${card.links.map(l => `<a href="${escapeAttr(ensureUrl(l.url))}" target="_blank" rel="noopener" class="card-link" onclick="event.stopPropagation()">🔗 ${escapeHtml(l.name)}</a>`).join('')}
+            </div>
+          ` : ''}
+          ${canEdit() ? renderNoteAdder(card) : ''}
+          ${noteLog.map(n => `
+            <div class="note-entry-view">
+              <p class="card-notes">${escapeHtml(n.text)}</p>
+              <p class="note-timestamp">${formatTimestamp(n.at)}</p>
+            </div>
+          `).join('')}
+          ${card.owner ? `<div class="card-foot"><span class="owner">${escapeHtml(card.owner)}</span></div>` : ''}
+        </div>
+        ${renderAvatar(card)}
+      </div>
+    </div>
+  `;
+}
+
+function renderNoteAdder(card){
+  if(addingNoteId === card.id){
+    return `
+      <div class="note-add-form" data-note-add-for="${card.id}">
+        <textarea class="note-add-textarea" id="note-add-text-${card.id}" placeholder="Type a note — it'll be saved with today's date and time."></textarea>
+        <div class="note-add-actions">
+          <button type="button" class="btn" data-cancel-note="${card.id}">Cancel</button>
+          <button type="button" class="btn primary" data-save-note="${card.id}">Save note</button>
+        </div>
+      </div>
+    `;
+  }
+  return `<button type="button" class="icon-btn add-note-btn" data-add-note="${card.id}">+ Add note</button>`;
+}
+
+function renderModal(editing){
+  const isNew = !editing;
+  const data = editing || {title:'', type:'poc', owner:'', client:'', domain:'', logo:'', modules:[], infraType:'', links:[], ragStatus:''};
+  return `
+    <div class="overlay" id="overlay">
+      <div class="modal">
+        <h2>${isNew ? 'New implementation' : 'Edit implementation'}</h2>
+        <div class="field">
+          <label>Type</label>
+          <div class="type-toggle">
+            <button type="button" class="type-btn ${data.type==='poc'?'active poc':''}" data-type="poc">POC</button>
+            <button type="button" class="type-btn ${data.type==='live'?'active live':''}" data-type="live">LIVE</button>
+          </div>
+        </div>
+        <div class="field"><label>Name</label><input id="f-title" type="text" value="${escapeAttr(data.title)}" placeholder="e.g. Fraud check API"></div>
+        <div class="field"><label>Client</label><input id="f-client" type="text" value="${escapeAttr(data.client)}" placeholder="e.g. Acme Corp"></div>
+        <div class="field">
+          <label>RAG Status</label>
+          <div class="type-toggle">
+            <button type="button" class="rag-btn ${data.ragStatus==='green' ? 'active rag-green-active':''}" data-rag="green">Green</button>
+            <button type="button" class="rag-btn ${data.ragStatus==='amber' ? 'active rag-amber-active':''}" data-rag="amber">Amber</button>
+            <button type="button" class="rag-btn ${data.ragStatus==='red' ? 'active rag-red-active':''}" data-rag="red">Red</button>
+          </div>
+          <p class="field-hint">Optional — shows as a colored dot before the client name. Click the selected option again to clear it.</p>
+        </div>
+        <div class="field">
+          <label>Client logo</label>
+          <div style="display:flex; align-items:center; gap:10px;">
+            <div class="avatar" id="logo-preview" style="width:40px;height:40px;border-radius:8px;font-size:14px;background:${data.logo ? 'transparent' : colorForName(data.client || 'x')}">
+              ${data.logo ? `<img src="${data.logo}" alt="">` : `<span>${initialsForName(data.client || '?')}</span>`}
+            </div>
+            <input type="file" id="f-logo-file" accept="image/*" style="flex:1; font-size:12px;">
+            <button type="button" class="icon-btn" id="f-logo-remove" title="Remove logo" style="border:1px solid var(--border); border-radius:6px; padding:6px 8px; ${data.logo ? '' : 'display:none;'}">✕</button>
+          </div>
+          <p class="field-hint">Upload a PNG/JPG and it'll be resized and embedded automatically. If left blank, a logo is auto-fetched from the client's website below, falling back to initials.</p>
+        </div>
+        <div class="field">
+          <label>Client website (optional fallback, for auto-logo)</label>
+          <input id="f-domain" type="text" value="${escapeAttr(data.domain)}" placeholder="e.g. acme.com">
+        </div>
+        <div class="field">
+          <label>Modules opted</label>
+          <div class="type-toggle">
+            <button type="button" class="module-btn ${(data.modules||[]).includes('CGP') ? 'active poc':''}" data-module="CGP">CGP</button>
+            <button type="button" class="module-btn ${(data.modules||[]).includes('CM') ? 'active poc':''}" data-module="CM">CM</button>
+            <button type="button" class="module-btn ${(data.modules||[]).includes('DC') ? 'active poc':''}" data-module="DC">DC</button>
+          </div>
+        </div>
+        <div class="field">
+          <label>Infra type</label>
+          <div class="type-toggle">
+            <button type="button" class="infra-btn ${data.infraType==='SaaS' ? 'active poc':''}" data-infra="SaaS">SaaS</button>
+            <button type="button" class="infra-btn ${data.infraType==='On-Prem' ? 'active live':''}" data-infra="On-Prem">On-Prem</button>
+          </div>
+        </div>
+        <div class="field">
+          <label>Drive links</label>
+          <div class="note-history" id="link-list"></div>
+          <div class="field-row" style="margin-top:8px;">
+            <div class="field"><input id="f-link-name" type="text" placeholder="e.g. Architecture Document"></div>
+            <div class="field"><input id="f-link-url" type="text" placeholder="Paste Google Drive link"></div>
+            <button type="button" class="btn" id="add-link-btn">Add</button>
+          </div>
+        </div>
+        <div class="field">
+          <label>Add a note</label>
+          <textarea id="f-notes" placeholder="Type a new note — it's logged with today's date and time. Earlier notes keep their original timestamps."></textarea>
+        </div>
+        <div class="field">
+          <label>Note history</label>
+          <div class="note-history" id="note-history"></div>
+        </div>
+        <div class="field"><label>Owner (optional)</label><input id="f-owner" type="text" value="${escapeAttr(data.owner)}" placeholder="e.g. you, or a teammate"></div>
+        <div class="modal-actions">
+          <div>${!isNew ? `<button class="btn delete" id="modal-delete">Delete</button>` : ''}</div>
+          <div style="display:flex;gap:8px;">
+            <button class="btn" id="modal-cancel">Cancel</button>
+            <button class="btn primary" id="modal-save">${isNew ? 'Add card' : 'Save'}</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function setupModalHandlers(editing){
+  let currentType = (editing && editing.type) || 'poc';
+  let currentLogo = (editing && editing.logo) || '';
+  let currentModules = (editing && Array.isArray(editing.modules)) ? [...editing.modules] : [];
+  let currentInfra = (editing && editing.infraType) || '';
+  let linkDraft = (editing && Array.isArray(editing.links)) ? [...editing.links] : [];
+  let noteLogDraft = (editing && Array.isArray(editing.noteLog)) ? [...editing.noteLog] : [];
+  let currentRag = (editing && editing.ragStatus) || '';
+
+  function renderLinkList(){
+    const container = document.getElementById('link-list');
+    if(!container) return;
+    if(linkDraft.length === 0){
+      container.innerHTML = `<p class="field-hint">No links added yet.</p>`;
+      return;
+    }
+    container.innerHTML = linkDraft.map(l => `
+      <div class="note-entry" data-link-id="${l.id}" style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
+        <a href="${escapeAttr(ensureUrl(l.url))}" target="_blank" rel="noopener" style="color:var(--poc); font-size:12px; text-decoration:none; word-break:break-word;">🔗 ${escapeHtml(l.name)}</a>
+        <button type="button" class="icon-btn link-del" data-link-id="${l.id}" title="Remove link">✕</button>
+      </div>
+    `).join('');
+    container.querySelectorAll('.link-del').forEach(btn=>{
+      btn.addEventListener('click', () => {
+        linkDraft = linkDraft.filter(l => l.id !== btn.dataset.linkId);
+        renderLinkList();
+      });
+    });
+  }
+  renderLinkList();
+
+  document.getElementById('add-link-btn').addEventListener('click', () => {
+    const nameInput = document.getElementById('f-link-name');
+    const urlInput = document.getElementById('f-link-url');
+    const name = nameInput.value.trim();
+    const url = urlInput.value.trim();
+    if(!name || !url){ flashStatus('Enter both a name and a link'); return; }
+    linkDraft.push({id: cryptoId(), name, url: ensureUrl(url)});
+    nameInput.value = '';
+    urlInput.value = '';
+    renderLinkList();
+  });
+
+  document.querySelectorAll('.module-btn').forEach(btn=>{
+    btn.addEventListener('click', () => {
+      const m = btn.dataset.module;
+      if(currentModules.includes(m)){
+        currentModules = currentModules.filter(x => x !== m);
+        btn.classList.remove('active','poc');
+      } else {
+        currentModules.push(m);
+        btn.classList.add('active','poc');
+      }
+    });
+  });
+
+  document.querySelectorAll('.rag-btn').forEach(btn=>{
+    btn.addEventListener('click', () => {
+      const val = btn.dataset.rag;
+      document.querySelectorAll('.rag-btn').forEach(b => b.classList.remove('active','rag-green-active','rag-amber-active','rag-red-active'));
+      if(currentRag === val){
+        currentRag = '';
+      } else {
+        currentRag = val;
+        btn.classList.add('active', `rag-${val}-active`);
+      }
+    });
+  });
+
+  document.querySelectorAll('.infra-btn').forEach(btn=>{
+    btn.addEventListener('click', () => {
+      const val = btn.dataset.infra;
+      document.querySelectorAll('.infra-btn').forEach(b => b.classList.remove('active','poc','live'));
+      if(currentInfra === val){
+        currentInfra = '';
+      } else {
+        currentInfra = val;
+        btn.classList.add('active', val === 'SaaS' ? 'poc' : 'live');
+      }
+    });
+  });
+
+  function renderNoteHistory(){
+    const container = document.getElementById('note-history');
+    if(!container) return;
+    if(noteLogDraft.length === 0){
+      container.innerHTML = `<p class="field-hint">No notes yet — add one above.</p>`;
+      return;
+    }
+    const sorted = [...noteLogDraft].sort((a,b) => new Date(b.at) - new Date(a.at));
+    container.innerHTML = sorted.map(n => `
+      <div class="note-entry" data-note-id="${n.id}">
+        <p class="note-entry-text">${escapeHtml(n.text)}</p>
+        <div class="note-entry-meta">
+          <span>${formatTimestamp(n.at)}</span>
+          <button type="button" class="icon-btn note-del" data-note-id="${n.id}" title="Delete this note">✕</button>
+        </div>
+      </div>
+    `).join('');
+    container.querySelectorAll('.note-del').forEach(btn=>{
+      btn.addEventListener('click', () => {
+        const noteId = btn.dataset.noteId;
+        noteLogDraft = noteLogDraft.filter(n => n.id !== noteId);
+        renderNoteHistory();
+      });
+    });
+  }
+  renderNoteHistory();
+
+  document.querySelectorAll('.type-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      currentType = btn.dataset.type;
+      document.querySelectorAll('.type-btn').forEach(b=> b.classList.remove('active','poc','live'));
+      btn.classList.add('active', currentType);
+    });
+  });
+
+  function refreshLogoPreview(){
+    const preview = document.getElementById('logo-preview');
+    const removeBtn = document.getElementById('f-logo-remove');
+    const clientName = document.getElementById('f-client').value.trim() || '?';
+    if(currentLogo){
+      preview.style.background = 'transparent';
+      preview.innerHTML = `<img src="${currentLogo}" alt="">`;
+      if(removeBtn) removeBtn.style.display = '';
+    } else {
+      preview.style.background = colorForName(clientName);
+      preview.innerHTML = `<span>${initialsForName(clientName)}</span>`;
+      if(removeBtn) removeBtn.style.display = 'none';
+    }
+  }
+
+  const fileInput = document.getElementById('f-logo-file');
+  if(fileInput){
+    fileInput.addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if(!file) return;
+      try{
+        flashStatus('Processing image…');
+        currentLogo = await resizeImageToDataUrl(file, 64);
+        refreshLogoPreview();
+        flashStatus('Logo ready');
+      }catch(err){
+        flashStatus(err.message || 'Could not process that image');
+      }
+    });
+  }
+  const removeBtn = document.getElementById('f-logo-remove');
+  if(removeBtn){
+    removeBtn.addEventListener('click', () => {
+      currentLogo = '';
+      refreshLogoPreview();
+    });
+  }
+  const clientInput = document.getElementById('f-client');
+  if(clientInput){
+    clientInput.addEventListener('input', () => { if(!currentLogo) refreshLogoPreview(); });
+  }
+
+  document.getElementById('overlay').addEventListener('click', (e)=>{ if(e.target.id === 'overlay') closeModal(); });
+  document.getElementById('modal-cancel').onclick = closeModal;
+  if(document.getElementById('modal-delete')){
+    document.getElementById('modal-delete').onclick = () => {
+      editingId = null;
+      deleteConfirmId = editing.id;
+      render();
+    };
+  }
+  document.getElementById('modal-save').onclick = () => {
+    const title = document.getElementById('f-title').value.trim();
+    if(!title){ document.getElementById('f-title').focus(); return; }
+    const newNoteText = document.getElementById('f-notes').value.trim();
+    const owner = document.getElementById('f-owner').value.trim();
+    const client = document.getElementById('f-client').value.trim();
+    const domain = document.getElementById('f-domain').value.trim();
+    let finalLog = [...noteLogDraft];
+    if(newNoteText){
+      finalLog.push({id: cryptoId(), text: newNoteText, at: new Date().toISOString()});
+    }
+    upsertCard({title, owner, client, domain, logo: currentLogo, type: currentType, noteLog: finalLog, modules: currentModules, infraType: currentInfra, links: linkDraft, ragStatus: currentRag});
+  };
+}
+
+function renderDeleteConfirm(){
+  const card = cards.find(c => c.id === deleteConfirmId);
+  const name = card ? (card.client || card.title) : 'this card';
+  return `
+    <div class="overlay" id="delete-confirm-overlay">
+      <div class="modal" style="max-width:380px;">
+        <h2>Delete <span class="delete-confirm-name">${escapeHtml(name)}</span>?</h2>
+        <p class="sub">This can't be undone. Type <strong>delete</strong> below to confirm.</p>
+        <div class="field">
+          <input id="delete-confirm-input" type="text" placeholder="Type delete to confirm" autocomplete="off">
+        </div>
+        <div class="modal-actions">
+          <div></div>
+          <div style="display:flex;gap:8px;">
+            <button class="btn" id="delete-confirm-cancel">Cancel</button>
+            <button class="btn danger" id="delete-confirm-ok" disabled>Delete</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function setupDeleteConfirmHandlers(){
+  const overlay = document.getElementById('delete-confirm-overlay');
+  const input = document.getElementById('delete-confirm-input');
+  const okBtn = document.getElementById('delete-confirm-ok');
+  const cancelBtn = document.getElementById('delete-confirm-cancel');
+
+  overlay.addEventListener('click', (e)=>{ if(e.target.id === 'delete-confirm-overlay') closeDeleteConfirm(); });
+  cancelBtn.onclick = closeDeleteConfirm;
+
+  function refreshOkState(){
+    okBtn.disabled = input.value.trim().toLowerCase() !== 'delete';
+  }
+  input.addEventListener('input', refreshOkState);
+  input.addEventListener('keydown', (e) => {
+    if(e.key === 'Enter' && !okBtn.disabled) okBtn.click();
+  });
+  okBtn.onclick = () => {
+    if(input.value.trim().toLowerCase() !== 'delete') return;
+    const id = deleteConfirmId;
+    deleteCard(id);
+  };
+  input.focus();
+}
+
+function renderSizeIndicator(){
+  const size = new Blob([JSON.stringify(cards)]).size;
+  const kb = Math.round(size / 1024);
+  return `
+    <div class="field-hint" style="margin-top:10px;">
+      Board size: ~${kb}KB — Firebase's free tier holds up to 1GB, so there's plenty of headroom.
+    </div>
+  `;
+}
+
+function renderSettings(){
+  return canEdit() ? renderAccessPanel() : renderAccountPanel();
+}
+
+function renderAccountPanel(){
+  return `
+    <div class="overlay" id="settings-overlay">
+      <div class="modal" style="max-width:380px;">
+        <h2>Account</h2>
+        <p class="sub">Signed in as <strong>${escapeHtml(currentUser.email || '')}</strong> — read-only access.</p>
+        <div class="modal-actions">
+          <div></div>
+          <div style="display:flex; gap:8px;">
+            <button class="btn" id="settings-cancel">Close</button>
+            <button class="btn delete" id="settings-signout">Sign out</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderAccessPanel(){
+  const pending = accessData.pending || {};
+  const viewers = accessData.viewers || {};
+  const editors = accessData.editors || {};
+  const pendingEntries = Object.entries(pending);
+  const viewerEntries = Object.entries(viewers);
+  const editorEntries = Object.entries(editors);
+
+  return `
+    <div class="overlay" id="settings-overlay">
+      <div class="modal" style="max-width:540px;">
+        <h2>Manage access</h2>
+        <p class="sub">Signed in as <strong>${escapeHtml(currentUser.email || '')}</strong> (editor).</p>
+
+        <div class="field">
+          <label>Pending requests${pendingEntries.length ? ` (${pendingEntries.length})` : ''}</label>
+          ${pendingEntries.length === 0 ? `<p class="field-hint">No one is waiting for approval.</p>` : `
+            <div class="note-history">
+              ${pendingEntries.map(([uid, req]) => `
+                <div class="access-row" data-uid="${escapeAttr(uid)}">
+                  <div class="access-row-info">
+                    <div class="access-row-email">${escapeHtml(req.email || uid)}</div>
+                    <div class="access-row-meta">requested ${formatTimestamp(req.requestedAt)}</div>
+                  </div>
+                  <div class="access-row-actions">
+                    <button type="button" class="btn primary small" data-approve-viewer="${escapeAttr(uid)}">Approve viewer</button>
+                    <button type="button" class="btn small" data-make-editor="${escapeAttr(uid)}">Make editor</button>
+                    <button type="button" class="btn delete small" data-dismiss-request="${escapeAttr(uid)}">Dismiss</button>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          `}
+        </div>
+
+        <div class="field">
+          <label>Approved viewers${viewerEntries.length ? ` (${viewerEntries.length})` : ''}</label>
+          ${viewerEntries.length === 0 ? `<p class="field-hint">No approved viewers yet.</p>` : `
+            <div class="note-history">
+              ${viewerEntries.map(([uid, v]) => `
+                <div class="access-row" data-uid="${escapeAttr(uid)}">
+                  <div class="access-row-info">
+                    <div class="access-row-email">${escapeHtml(v.email || uid)}</div>
+                    <div class="access-row-meta">approved ${formatTimestamp(v.approvedAt)}</div>
+                  </div>
+                  <div class="access-row-actions">
+                    <button type="button" class="btn small" data-promote-editor="${escapeAttr(uid)}">Make editor</button>
+                    <button type="button" class="btn delete small" data-revoke-viewer="${escapeAttr(uid)}">Revoke</button>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          `}
+        </div>
+
+        <div class="field">
+          <label>Editors${editorEntries.length ? ` (${editorEntries.length})` : ''}</label>
+          <div class="note-history">
+            ${editorEntries.map(([uid, e]) => `
+              <div class="access-row" data-uid="${escapeAttr(uid)}">
+                <div class="access-row-info">
+                  <div class="access-row-email">${escapeHtml(e.email || uid)}${currentUser && uid === currentUser.uid ? ' (you)' : ''}</div>
+                  <div class="access-row-meta">added ${formatTimestamp(e.addedAt)}</div>
+                </div>
+                ${editorEntries.length > 1 ? `
+                  <div class="access-row-actions">
+                    <button type="button" class="btn delete small" data-revoke-editor="${escapeAttr(uid)}">Revoke</button>
+                  </div>
+                ` : ''}
+              </div>
+            `).join('')}
+          </div>
+        </div>
+
+        ${renderSizeIndicator()}
+        ${accessBusy ? `<p class="field-hint">Working…</p>` : ''}
+
+        <div class="modal-actions">
+          <div></div>
+          <div style="display:flex; gap:8px;">
+            <button class="btn" id="settings-cancel">Close</button>
+            <button class="btn delete" id="settings-signout">Sign out</button>
+          </div>
+        </div>
+        <div class="debug-toggle" id="debug-toggle">${showDebug ? 'Hide' : 'Show'} activity log</div>
+        ${showDebug ? `<div class="debug-box">${debugLog.length ? escapeHtml(debugLog.join('\\n')) : 'No activity yet.'}</div>` : ''}
+      </div>
+    </div>
+  `;
+}
+
+function setupSettingsHandlers(){
+  document.getElementById('settings-overlay').addEventListener('click', (e)=>{
+    if(e.target.id === 'settings-overlay'){ showSettings = false; render(); }
+  });
+  document.getElementById('settings-cancel').onclick = () => { showSettings = false; render(); };
+  document.getElementById('settings-signout').onclick = () => { showSettings = false; signOutUser(); };
+
+  if(!canEdit()) return;
+
+  const debugToggle = document.getElementById('debug-toggle');
+  if(debugToggle) debugToggle.onclick = () => { showDebug = !showDebug; render(); };
+
+  async function withBusy(fn){
+    accessBusy = true;
+    render();
+    try{ await fn(); }
+    catch(e){ logDebug('Access action FAILED — ' + e.message); flashStatus(e.message || 'Something went wrong'); }
+    accessBusy = false;
+    await loadAccessData();
+  }
+
+  document.querySelectorAll('[data-approve-viewer]').forEach(btn=>{
+    btn.addEventListener('click', () => {
+      const uid = btn.dataset.approveViewer;
+      const req = accessData.pending[uid] || {};
+      withBusy(async () => {
+        await fbPut('allowedViewers/' + uid, { email: req.email || '', name: req.name || '', approvedAt: new Date().toISOString() });
+        await fbDelete('accessRequests/' + uid);
+        logDebug('Approved viewer: ' + (req.email || uid));
+      });
+    });
+  });
+  document.querySelectorAll('[data-make-editor]').forEach(btn=>{
+    btn.addEventListener('click', () => {
+      const uid = btn.dataset.makeEditor;
+      const req = accessData.pending[uid] || {};
+      withBusy(async () => {
+        await fbPut('editors/' + uid, { email: req.email || '', name: req.name || '', addedAt: new Date().toISOString() });
+        await fbDelete('accessRequests/' + uid);
+        logDebug('Made editor: ' + (req.email || uid));
+      });
+    });
+  });
+  document.querySelectorAll('[data-dismiss-request]').forEach(btn=>{
+    btn.addEventListener('click', () => {
+      const uid = btn.dataset.dismissRequest;
+      withBusy(async () => {
+        await fbDelete('accessRequests/' + uid);
+        logDebug('Dismissed request: ' + uid);
+      });
+    });
+  });
+  document.querySelectorAll('[data-promote-editor]').forEach(btn=>{
+    btn.addEventListener('click', () => {
+      const uid = btn.dataset.promoteEditor;
+      const v = accessData.viewers[uid] || {};
+      withBusy(async () => {
+        await fbPut('editors/' + uid, { email: v.email || '', name: v.name || '', addedAt: new Date().toISOString() });
+        await fbDelete('allowedViewers/' + uid);
+        logDebug('Promoted to editor: ' + (v.email || uid));
+      });
+    });
+  });
+  document.querySelectorAll('[data-revoke-viewer]').forEach(btn=>{
+    btn.addEventListener('click', () => {
+      const uid = btn.dataset.revokeViewer;
+      if(!confirm('Revoke read access for this person?')) return;
+      withBusy(async () => {
+        await fbDelete('allowedViewers/' + uid);
+        logDebug('Revoked viewer: ' + uid);
+      });
+    });
+  });
+  document.querySelectorAll('[data-revoke-editor]').forEach(btn=>{
+    btn.addEventListener('click', () => {
+      const uid = btn.dataset.revokeEditor;
+      if(Object.keys(accessData.editors || {}).length <= 1){ flashStatus('Cannot remove the last editor'); return; }
+      if(!confirm('Revoke editor access for this person?')) return;
+      withBusy(async () => {
+        await fbDelete('editors/' + uid);
+        logDebug('Revoked editor: ' + uid);
+      });
+    });
+  });
+}
+
+function escapeHtml(str){
+  return (str||'').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+function escapeAttr(str){ return escapeHtml(str); }
+
+initFirebase();
+</script>
+</body>
+</html>
